@@ -10,7 +10,8 @@ For my first week project I built a small cybersecurity lab on my own laptop. It
 
 Only use a lab like this on systems you own or have permission to test.
 
-![Kali Linux desktop](kali-desktop.png)
+
+![Kali Linux desktop](kali-desktop.png.png)
 
 ---
 
@@ -30,14 +31,14 @@ Only use a lab like this on systems you own or have permission to test.
 
 | Item | Details |
 | --- | --- |
-| Host OS | Windows [10/11] |
-| Hypervisor | VirtualBox [version] |
-| Guest OS | Kali Linux [version] |
+| Host OS | Windows 11 |
+| Hypervisor | VirtualBox 7.2.22 |
+| Guest OS | Kali Linux 2026.3 |
 | Network type | NAT Network |
 | Lab subnet | 10.0.0.0/24 |
 | Kali IP | 10.0.0.2/24 |
 | Gateway | 10.0.0.1 |
-| DNS | 8.8.8.8 |
+| DNS | 8.8.8.8, 10.0.0.1 |
 
 ---
 
@@ -52,7 +53,7 @@ Downloaded the Kali VM image from the official Kali website and imported it into
 ### Step 3: Create the NAT Network
 In VirtualBox I created a new NAT Network with its own IP range. I chose a NAT Network (not plain NAT) so more VMs can join the same network later and talk to each other.
 
-![NAT Network settings](nat-network.png)
+![NAT Network settings](nat-network.png.png)
 
 ### Step 4: Connect Kali to the NAT Network
 In the Kali VM settings, I set Adapter 1 to "NAT Network" and picked the network I created.
@@ -63,7 +64,8 @@ I added a shared folder in VirtualBox so I can move files between Windows and Ka
 ### Step 6: Configure the IP address
 I changed Kali's IP address from the automatic one to `10.0.0.2/24` using the IPv4 settings.
 
-![Kali IPv4 settings](kali-ipv4-settings.png)
+![Kali IPv4 settings](kali-ipv4-settings.png.png)
+
 
 Then I checked it with:
 
@@ -72,10 +74,11 @@ ip a
 ip route
 ```
 
-![ip a and ip route output](ip-a-route.png)
+![ip a and ip route output](ip-a-route.png.png)
+
 
 ### Step 7: Take a snapshot
-Once everything was working, I took a clean snapshot named `[your snapshot name]`.
+Once everything was working, I took a clean snapshot named `Snapshot 1`.
 
 ---
 
@@ -89,11 +92,12 @@ Once everything was working, I took a clean snapshot named `[your snapshot name]
 | Short IP view | `ip -br a` | Shows the interface and its IP |
 | Shared folder | `ls -la /media/sf_kali_downloads` | Folder opens, files are listed |
 
-![Verification commands](verification.png)
+![Verification commands](verification.png.png)
+
 
 I also opened Firefox to make sure normal browsing works.
 
-![Firefox working](firefox-working.png)
+![Firefox working](firefox-working.png.png)
 
 ---
 
@@ -102,11 +106,33 @@ I also opened Firefox to make sure normal browsing works.
 ### Problem 1: Kali wouldn't finish downloading
 The download kept failing and nothing I tried fixed it. In the end, switching to a different network (my hotspot) let it finish. Sometimes the problem is the network, not your setup.
 
-### Problem 2: Getting the right IP address
-Kali kept getting `10.0.0.3` automatically, but I needed `10.0.0.2`. When I changed the settings, I lost my internet and had to troubleshoot it. I got it working again by resetting the connection and then setting the address manually. After that I verified it with `ip a`.
-
-### Problem 3: Finding the shared folder
+### Problem 2: Finding the shared folder
 At first Kali couldn't find my shared folder. It turned out Linux mounts shared folders under `/media` with an `sf_` prefix, and I had picked a folder in the wrong location on my host. Fixing that solved it.
+
+### Problem 3: Getting the right IP address
+Kali kept getting `10.0.0.3` automatically, but I needed `10.0.0.2`. When I changed the settings, the connection failed with an "IP configuration could not be reserved" error and I lost my internet. These commands fixed it for me:
+
+```
+sudo nmcli connection modify "Wired connection 1" ipv4.dad-timeout 0
+sudo nmcli connection down "Wired connection 1"
+sudo nmcli connection up "Wired connection 1"
+```
+
+The first command turns off the wait for the duplicate address check, and the next two restart the connection so the change applies. After that I set the address manually and verified it with `ip a`.
+
+### Problem 4: Ping worked but Firefox said no internet
+After the failed IP change, `ping` to `8.8.8.8` and `google.com` worked, but Firefox couldn't open YouTube and the network icon showed an X. Setting the connection back to automatic with `nmcli` didn't fully fix it, because the connection was stuck in a broken state.
+
+What fixed it was deleting the broken connection and letting Kali create a fresh one with automatic settings:
+
+```
+sudo nmcli con delete "Wired connection 1"
+sudo nmcli device connect eth0
+nmcli device status
+ip a
+```
+
+After that the device showed as connected, I got an IP address again, and Firefox worked normally. Connection names can be different on other systems, so check yours with `nmcli con show` first.
 
 ---
 
